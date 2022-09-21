@@ -40,22 +40,34 @@ jobs:
         shell: cmd
         run: git clone --recursive https://github.com/dirkarnez/pkg-config-action.git && xcopy /E /H /Y /C "${{ github.workspace }}\pkg-config-action\*" "${{ github.workspace }}\mingw64\bin" && cd /d "${{ github.workspace }}\mingw64\bin" && pkg-config.exe --version
         
-      - name: download mm-common-prebuilt
-        shell: cmd
-        run: cd /d ${{ github.workspace }} && curl https://github.com/dirkarnez/mm-common-prebuilt/releases/download/v1.0.4/mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0.zip -L --output mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0.zip && dir && 7z.exe x mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0.zip -o"${{ github.workspace }}\mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0"
+#       - name: download mm-common-prebuilt
+#         shell: cmd
+#         run: cd /d ${{ github.workspace }} && curl https://github.com/dirkarnez/mm-common-prebuilt/releases/download/v1.0.4/mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0.zip -L --output mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0.zip && dir && 7z.exe x mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0.zip -o"${{ github.workspace }}\mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0"
         
-      - name: curl cmake-3.24.0-windows-x86_64.zip
-        shell: cmd
-        run: cd /d ${{ github.workspace }} && curl https://github.com/Kitware/CMake/releases/download/v3.24.0/cmake-3.24.0-windows-x86_64.zip -L --output cmake-3.24.0-windows-x86_64.zip && dir && 7z.exe x cmake-3.24.0-windows-x86_64.zip
+#       - name: curl cmake-3.24.0-windows-x86_64.zip
+#         shell: cmd
+#         run: cd /d ${{ github.workspace }} && curl https://github.com/Kitware/CMake/releases/download/v3.24.0/cmake-3.24.0-windows-x86_64.zip -L --output cmake-3.24.0-windows-x86_64.zip && dir && 7z.exe x cmake-3.24.0-windows-x86_64.zip
       
 #       - name: curl nasm-2.15.05-win64.zip
 #         shell: cmd
 #         run: cd /d ${{ github.workspace }} && curl https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win64/nasm-2.15.05-win64.zip -L --output nasm-2.15.05-win64.zip && dir && 7z.exe x nasm-2.15.05-win64.zip
+      
+      - name: git clone mm-common
+        shell: cmd
+        run: git clone --recursive https://gitlab.gnome.org/GNOME/mm-common.git && cd mm-common && git checkout 1.0.4
         
       - name: set PATH, check mingw version, cmake generate, build and install
         shell: msys2 {0}
         run: |
-            export PATH="${{ github.workspace }}/mm-common-v1.0.4-x86_64-posix-seh-rev0-8.1.0/bin:${{ github.workspace }}/mingw64:${{ github.workspace }}/mingw64/bin:${{ github.workspace }}/cmake-3.24.0-windows-x86_64/bin:${{ github.workspace }}/msys64/usr/bin:/usr/bin" &&
+            export PATH="${{ github.workspace }}/mingw64:${{ github.workspace }}/mingw64/bin:${{ github.workspace }}/msys64/usr/bin:/usr/bin" &&
+            export PKG_CONFIG_PATH="${{ github.workspace }}/mingw64/bin" &&
+            cd mm-common && g++ --version && pkg-config --version && ./autogen.sh --prefix="$(pwd)/mm-common-installation" &&
+            make.exe && make.exe install 
+            
+      - name: set PATH, check mingw version, cmake generate, build and install
+        shell: msys2 {0}
+        run: |
+            export PATH="${{ github.workspace }}/mm-common/mm-common-installation/bin:${{ github.workspace }}/mingw64:${{ github.workspace }}/mingw64/bin:${{ github.workspace }}/cmake-3.24.0-windows-x86_64/bin:${{ github.workspace }}/msys64/usr/bin:/usr/bin" &&
             export PKG_CONFIG_PATH="${{ github.workspace }}/mingw64/bin" &&
             cd gtkmm && g++ --version && pkg-config --version && ./autogen.sh --prefix="$(pwd)/${{ env.installationPath }}" &&
             make.exe && make.exe install 
