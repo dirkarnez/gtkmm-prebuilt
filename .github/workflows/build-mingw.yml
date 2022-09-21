@@ -1,0 +1,71 @@
+name: cpp-cmake-mingw-prebuilt-release-actions-workflow
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'c*'
+
+jobs:
+  build:
+    name: Create Release
+    runs-on: windows-2019
+    env:
+      libraryName: gtkmm
+      installationPath: gtkmm-installation
+      tagName: 4.8.0 # target tag
+      mingwTargetZip: gtkmm-${{ github.ref_name }}-x86_64-posix-seh-rev0-8.1.0.zip
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: git clone
+        shell: cmd
+        run: git clone --recursive https://gitlab.gnome.org/GNOME/gtkmm.git && cd gtkmm && git checkout ${{ env.tagName }}
+        
+      - name: Install MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: make autoconf automake libtool autogen perl git 
+
+      - name: curl x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
+        shell: cmd
+        run:  cd /d ${{ github.workspace }} && curl https://github.com/2641797006/c/blob/master/GCC-zip/x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z?raw=true -L --output x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z && dir && 7z.exe x x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
+        
+#       - name: curl x86_64-8.1.0-release-posix-seh-rt_v6-rev0.7z
+#         shell: cmd
+#         run:  cd /d ${{ github.workspace }} && curl https://github.com/brechtsanders/winlibs_mingw/releases/download/11.2.0-12.0.1-9.0.0-r1/winlibs-x86_64-posix-seh-gcc-11.2.0-mingw-w64-9.0.0-r1.7z -L --output winlibs-x86_64-posix-seh-gcc-11.2.0-mingw-w64-9.0.0-r1.7z && dir && 7z.exe x winlibs-x86_64-posix-seh-gcc-11.2.0-mingw-w64-9.0.0-r1.7z
+        
+      - name: git clone pkg-config
+        shell: cmd
+        run: git clone --recursive https://github.com/dirkarnez/pkg-config-action.git && xcopy /E /H /Y /C "${{ github.workspace }}\pkg-config-action\*" "${{ github.workspace }}\mingw64\bin" && cd /d "${{ github.workspace }}\mingw64\bin" && pkg-config.exe --version
+        
+      - name: curl cmake-3.24.0-windows-x86_64.zip
+        shell: cmd
+        run: cd /d ${{ github.workspace }} && curl https://github.com/Kitware/CMake/releases/download/v3.24.0/cmake-3.24.0-windows-x86_64.zip -L --output cmake-3.24.0-windows-x86_64.zip && dir && 7z.exe x cmake-3.24.0-windows-x86_64.zip
+      
+#       - name: curl nasm-2.15.05-win64.zip
+#         shell: cmd
+#         run: cd /d ${{ github.workspace }} && curl https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/win64/nasm-2.15.05-win64.zip -L --output nasm-2.15.05-win64.zip && dir && 7z.exe x nasm-2.15.05-win64.zip
+        
+      - name: set PATH, check mingw version, cmake generate, build and install
+        shell: msys2 {0}
+        run: |
+            export PATH="${{ github.workspace }}/nasm-2.15.05:${{ github.workspace }}/mingw64:${{ github.workspace }}/mingw64/bin:${{ github.workspace }}/cmake-3.24.0-windows-x86_64/bin:${{ github.workspace }}/msys64/usr/bin:/usr/bin" &&
+            export PKG_CONFIG_PATH="${{ github.workspace }}/mingw64/bin" &&
+            cd gtkmm && g++ --version && pkg-config --version && ./autogen.sh --prefix="$(pwd)/${{ env.installationPath }}" &&
+            make.exe && make.exe install 
+            
+      - name: Archive Release
+        uses: thedoctor0/zip-release@master
+        with:
+          type: 'zip'
+          directory: "${{ github.workspace }}/gtkmm/${{ env.installationPath }}"
+          filename: "${{ env.mingwTargetZip }}"
+        
+      - name: Release prebuilt
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ github.workspace }}/gtkmm/${{ env.installationPath }}/${{ env.mingwTargetZip }}"
+          allowUpdates: true
+          token: ${{ secrets.GITHUB_TOKEN }}
